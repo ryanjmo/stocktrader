@@ -19,6 +19,7 @@ import sell_7_seconds as sell
 import math
 
 
+##change
 ####   USAGE    ####
 #
 #python3 buy.py NAME, SYMBOL, FACTOR_OF_MONEY_TO_SPEND, PRICE, STOP_PRICE
