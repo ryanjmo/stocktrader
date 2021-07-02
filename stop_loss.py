@@ -67,15 +67,14 @@ else:
     print("Error, need stop_limit price exiting...")
     exit()
 
-
-print('Starting Position Quantity:', original_symbol_quantity)
-print('Stop Limt Price:', stop_limit_price)
+average_entry_price = float(original_symbol_position.avg_entry_price) 
+print('Average entry price', average_entry_price, 'Starting Position Quantity:', original_position_qty, 'Stop Limt Price:', stop_limit_price)
 
 
 
 result = api.submit_order(
         symbol=symbol,
-        qty=original_quantity_to_buy,
+        qty=original_position_qty,
         side='sell',
         type='stop_limit',
         time_in_force='day',
@@ -87,7 +86,7 @@ result = api.submit_order(
 order_id = result.id
 order_qty = result.qty
 
-buy.protect_from_quick_stop(api, current_price, stop_price, order_id)
+buy.protect_from_quick_stop(api, symbol, current_price, stop_limit_price, order_id, average_entry_price)
 
 
     

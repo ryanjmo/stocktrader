@@ -48,9 +48,10 @@ def sell_the_stock(api, symbol, fraction_of_position_to_sell, extended_hours, se
         print('original_symbol_price', original_symbol_price)
         
         
-        max_sell_price = ut.round_to_two((original_symbol_price)*sell_factor)
-        print('sell_factor', sell_factor)
-        print('max_sell_price', max_sell_price)
+        if selling_into_strength == True:
+            max_sell_price = ut.round_to_two((original_symbol_price)*sell_factor)
+            print('sell_factor', sell_factor)
+            print('max_sell_price', max_sell_price)
         
         print('Selling Program Started...')
         
@@ -61,7 +62,7 @@ def sell_the_stock(api, symbol, fraction_of_position_to_sell, extended_hours, se
         
         if selling_into_strength == False:
             
-            Print('Selling into strength False, putting in Limit Order for 4 seconds. Limit price:', original_symbol_price)
+            print('Not Selling into strength, putting in Limit Order for 4 seconds. Limit price:', original_symbol_price)
             result = api.submit_order(
                 symbol=symbol,
                 qty=original_quantity_to_sell,
@@ -72,13 +73,13 @@ def sell_the_stock(api, symbol, fraction_of_position_to_sell, extended_hours, se
                 extended_hours=extended_hours
             )
             
-            time.sleep(3.75)
+            time.sleep(3.9)
             
             order_id = result.id
             
             while True:
                 cancel_order_info = api.cancel_order(order_id)
-                time.sleep(.25)
+                time.sleep(.1)
                 canceled_order_info = api.get_order(order_id)
                 if canceled_order_info.status == 'pending cancel':
                     'PENDING CANCEL, CONTINUING'
@@ -102,6 +103,14 @@ def sell_the_stock(api, symbol, fraction_of_position_to_sell, extended_hours, se
                     time_in_force='day',
                     extended_hours=extended_hours
                 )
+                time.sleep(2)
+                market_order_info = api.get_order(order_id)
+                quantity_left_to_sell = int(market_order_info.qty) - int(market_order_info.filled_qty)
+                if quantity_left_to_sell == 0:
+                    print("All sold from market... exiting...")
+                else:
+                    print("Error, should have all sold market... look into this")
+                
         else:
             order_infos = {}
             price_divisions = 3

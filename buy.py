@@ -26,33 +26,39 @@ import math
 #
 #####################
     
-def protect_from_quick_stop(api, current_price, stop_price, order_id):
+def protect_from_quick_stop(api, symbol, current_price, stop_price, order_id, average_entry_price):
+    
+    extended_hours = False
     
     try:
         for x in range(0,100000):
         
             ##check to see if price is under and if so sell
             
-            if x == 0:
+            if x%50 == 0:
                 print('Symbol:', symbol, 'Protecting From A Quick Stop: Average Entry Price', average_entry_price, 'Current Price:', current_price, 'Stop Price', stop_price)
             
             
             if float(current_price) <= float(stop_price):
-                time.sleep(1)
+                print("Current Price Lower than stop, trying to sell. current_price:", current_price, "stop_price", stop_price)
+                time.sleep(1.4)
                 
                 cancel_order_info = api.cancel_order(order_id)
                 while True:
-                    time.sleep(.5)
-                    canceled_order_info = api.get_order(cancel_order_info['id'])
+                    time.sleep(.1)
+                    canceled_order_info = api.get_order(order_id)
                     if canceled_order_info.status == 'pending cancel':
                         'PENDING CANCEL, CONTINUING'
                         continue
                     else:
                         break
+                    
+                print(canceled_order_info)
              
                 quantity_left_to_sell = int(canceled_order_info.qty) - int(canceled_order_info.filled_qty)
                 
                 if int(quantity_left_to_sell) == 0:
+                    print("Hit Stop and Sold Limit... exiting...")
                     break
                 
                 result = api.submit_order(
@@ -70,13 +76,15 @@ def protect_from_quick_stop(api, current_price, stop_price, order_id):
                 
                 quantity_left_to_sell = int(order_info.qty) - int(order_info.filled_qty)
                 
-            if quantity_left_to_buy == 0:
-                print("Sold Market... Exiting...")
+                if quantity_left_to_sell == 0:
+                    print("Hit Stop and Sold Market... Exiting...")
+                    break
                 
-            else:
-                print("ERROR, something went wrong, should have sold all. Do a Market Order")
-                
-                
+                else:
+                    print("ERROR, something went wrong, should have sold all. Do a Market Order")
+            
+            time.sleep(.01)
+            current_price = ut.get_current_price_of_stock(symbol)    
         
     except KeyboardInterrupt:
         
@@ -100,7 +108,7 @@ def protect_from_quick_stop(api, current_price, stop_price, order_id):
         else:
             selling_into_strength = False
         
-        sell.sell_the_stock(api, symbol, fraction_of_position_to_sell, extended_hours, selling_into_strength)
+        sell.sell_the_stock(api, symbol, fraction_of_position_to_sell, False, selling_into_strength)
     
         
     
@@ -199,6 +207,11 @@ if __name__ == '__main__':
     
     
     account_portfolio_value = int(float(account.portfolio_value))
+    if sys.argv[1] == 'ryan':
+        account_portfolio_value = 5000
+    if sys.argv[1] == 'chrissy':
+        account_portfolio_value = 2500
+    
     
     original_quantity_to_buy = (float(account_portfolio_value)/fraction_of_money_to_spend)/float(max_buy_price)
     
@@ -239,16 +252,17 @@ if __name__ == '__main__':
         
         if x%10 == 0:
             
-            print("Symbol", symbol, "Quantity Left To Buy", quantity_left_to_buy, "Quantity filled:", order_id.filled_qty, "Quantity started:", order_qty.qty)
+            print("Symbol", symbol, "Quantity Left To Buy", quantity_left_to_buy, "Quantity filled:", current_order_info.filled_qty, "Quantity started:", current_order_info.qty)
             print("Current Price", current_price, "Quantity Left To Buy:", quantity_left_to_buy, "At Price", max_buy_price)
         
         
-        current_order_info = api.get_order(current_order_info['id'])
+        current_order_info = api.get_order(current_order_info.id)
         quantity_left_to_buy = int(current_order_info.qty) - int(current_order_info.filled_qty)
         if quantity_left_to_buy == 0:
             print("Buying Complete, going to check stop loss.")
+            break
             
-        order_id = current_order_info['id']
+        order_id = current_order_info.id
     
     
     current_symbol_position = ut.get_symbol_position(api, symbol)
@@ -268,5 +282,5 @@ if __name__ == '__main__':
             stop_price = float(stop_price) - .01
         
     
-    protect_from_quick_stop(api, current_price, stop_price, order_id)
+    protect_from_quick_stop(api, symbol, current_price, stop_price, order_id, average_entry_price)
     
