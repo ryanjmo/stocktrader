@@ -91,7 +91,7 @@ def sell_the_stock(api, symbol, fraction_of_position_to_sell, extended_hours, se
             
             if int(quantity_left_to_sell) == 0:
                 
-                print("Sold All With Limit, Exiting...")
+                print("Sold All With Limit...")
                 
             else:
                 print("Didn't sell all doing market sell")
@@ -253,8 +253,6 @@ def sell_the_stock(api, symbol, fraction_of_position_to_sell, extended_hours, se
                 extended_hours=extended_hours
             )
                 
-     
-    exit()  
         
 
 if __name__ == '__main__':

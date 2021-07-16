@@ -17,6 +17,7 @@ import requests
 import json
 import sell_7_seconds as sell
 import math
+import stop_loss as stop
 
 
 ##change
@@ -91,28 +92,43 @@ def protect_from_quick_stop(api, symbol, current_price, stop_price, order_id, av
         
     except KeyboardInterrupt:
         
-        all_orders = api.list_orders()
+        ut.cancel_all_symbol_orders(api, symbol)
         
-        for order in all_orders:
-            if order.symbol == symbol:
-                api.cancel_order(order.id)
+        next_step = input('Would you like to Sell(s) or Change the Stop Loss(c): ')
         
-        fraction_of_position_to_sell = input('Enter Fraction Of Position You Want Sold: ')
+        if next_step == 's':
         
-        if fraction_of_position_to_sell.isnumeric():
-            fraction_of_position_to_sell = int(fraction_of_position_to_sell)
+            fraction_of_position_to_sell = input('Enter Fraction Of Position You Want Sold: ')
+            
+            if fraction_of_position_to_sell.isnumeric():
+                fraction_of_position_to_sell = int(fraction_of_position_to_sell)
+            else:
+                fraction_of_position_to_sell = 1
+            
+            selling_into_strength_input = input('Selling Into Strength. Yes(y) or No(n): ')
+           
+            if selling_into_strength_input == 'y':
+                selling_into_strength = True
+            else:
+                selling_into_strength = False
+            
+            sell.sell_the_stock(api, symbol, fraction_of_position_to_sell, False, selling_into_strength)
+            
+            if fraction_of_position_to_sell != 1:
+                
+                stop_limit_price = input('Enter New Stop Limit Price: ')
+                
+                stop.change_stop_loss(api, symbol, stop_limit_price)
+                
+        
         else:
-            fraction_of_position_to_sell = 1
-        
-        selling_into_strength_input = input('Selling Into Strength. Yes(y) or No(n): ')
-       
-        if selling_into_strength_input == 'y':
-            selling_into_strength = True
-        else:
-            selling_into_strength = False
-        
-        sell.sell_the_stock(api, symbol, fraction_of_position_to_sell, False, selling_into_strength)
-    
+            
+            stop_limit_price = input('Enter New Stop Limit Price: ')
+            
+            stop.change_stop_loss(api, symbol, stop_limit_price)
+            
+            
+            
         
     
 if __name__ == '__main__':
@@ -126,7 +142,7 @@ if __name__ == '__main__':
         )
         
         
-    symbol = sys.argv[2].upper()
+    symbol = sys.argv[3].upper()
     
     all_orders = api.list_orders()
         
@@ -145,24 +161,21 @@ if __name__ == '__main__':
     print('Symbol: ', symbol, ', current_price:', current_price)
     print('')
     
-    if len(sys.argv) > 3:
-        if sys.argv[3].isnumeric():
-            fraction_of_money_to_spend = float(sys.argv[3])
-        else:
-            print("ERROR... Fraction Of Money To Spend Should Be an Integer")
+    if sys.argv[2].isnumeric():
+        fraction_of_money_to_spend = float(sys.argv[2])
     else:
-        fraction_of_money_to_spend = 4
+        print("ERROR... Fraction Of Money To Spend Should Be an Integer")
     
     
+    additional_market_buy = False
     
-    
-    if len(sys.argv) > 4 and sys.argv[4] != '0':
+    if len(sys.argv) > 4 and sys.argv[4] != '0' and sys.argv[4] != '-1':
         #This will be a limit buy
         original_buy_price = float(sys.argv[4])
         factor_over_price_accepted = 1.00025
         stop_out_factor = .998
         limit_buy = True
-        print('here1')
+        print('Limit Buy Tight')
         
     else:
         #This will be a market buy
@@ -170,8 +183,11 @@ if __name__ == '__main__':
         factor_over_price_accepted = 1.001
         stop_out_factor = .998
         limit_buy = False
-        print('here2')
-        
+        if sys.argv[4] == '0':
+            print('Limit Buy Based On Current Price Plus a Bit')
+        if sys.argv[4] == '-1':
+            additional_market_buy = True
+            print('Limit Buy Based On Current Price Plus a Bit, THEN a Market Buy')
         
         
     
@@ -188,7 +204,7 @@ if __name__ == '__main__':
     #limit_price_for_stop = stop_price*.998
     limit_price_for_stop = stop_price*1
     
-    
+
     
     max_buy_price = ut.round_to_two((original_buy_price)*factor_over_price_accepted)
     
@@ -247,29 +263,88 @@ if __name__ == '__main__':
     order_id = result.id
     order_qty = result.qty
     
-    for x in range(0,100000):
+    if additional_market_buy == True:
         
-        time.sleep(1)
+        print('Going to Wait 2 Seconds Then Market Buy')
+        time.sleep(2)
         
-        current_order_info = api.get_order(order_id)
-        quantity_left_to_buy = int(current_order_info.qty) - int(current_order_info.filled_qty)
-        current_price = ut.get_current_price_of_stock(symbol)
-        
-        if x%10 == 0:
+        cancel_order_info = api.cancel_order(order_id)
+        while True:
+            time.sleep(.1)
+            canceled_order_info = api.get_order(order_id)
+            if canceled_order_info.status == 'pending cancel':
+                'PENDING CANCEL, CONTINUING'
+                continue
+            else:
+                break
             
-            print("Symbol", symbol, "Quantity Left To Buy", quantity_left_to_buy, "Quantity filled:", current_order_info.filled_qty, "Quantity started:", current_order_info.qty)
-            print("Current Price", current_price, "Quantity Left To Buy:", quantity_left_to_buy, "At Price", max_buy_price)
+        quantity_left_to_buy = int(canceled_order_info.qty) - int(canceled_order_info.filled_qty)
         
-        
-        current_order_info = api.get_order(current_order_info.id)
-        quantity_left_to_buy = int(current_order_info.qty) - int(current_order_info.filled_qty)
         if quantity_left_to_buy == 0:
-            print("Buying Complete, going to check stop loss.")
-            order_id = current_order_info.legs[0].id
-            break
             
-        order_id = current_order_info.id
+            order_id = canceled_order_info.legs[0].id    
+        
+        else:
+        
+            result = api.submit_order(
+                symbol=symbol,
+                qty=quantity_left_to_buy,
+                side='buy',
+                type='market',
+                time_in_force='day',
+                extended_hours=extended_hours
+            )
+                
+            time.sleep(.2)
+            
+            result = api.submit_order(
+                symbol=symbol,
+                qty=original_quantity_to_buy,
+                side='sell',
+                type='stop_limit',
+                time_in_force='day',
+                stop_price=stop_price,
+                limit_price=limit_price_for_stop,
+                extended_hours=extended_hours
+            )
+            
+            order_id = result.id
     
+    else:    
+        
+        try:
+            
+            for x in range(0,100000):
+                
+                time.sleep(1)
+                
+                current_order_info = api.get_order(order_id)
+                quantity_left_to_buy = int(current_order_info.qty) - int(current_order_info.filled_qty)
+                current_price = ut.get_current_price_of_stock(symbol)
+                
+                if x%10 == 0:
+                    
+                    print("Symbol", symbol, "Quantity Left To Buy", quantity_left_to_buy, "Quantity filled:", current_order_info.filled_qty, "Quantity started:", current_order_info.qty)
+                    print("Current Price", current_price, "Quantity Left To Buy:", quantity_left_to_buy, "At Price", max_buy_price)
+                
+                
+                current_order_info = api.get_order(current_order_info.id)
+                quantity_left_to_buy = int(current_order_info.qty) - int(current_order_info.filled_qty)
+                if quantity_left_to_buy == 0:
+                    print("Buying Complete, going to check stop loss.")
+                    order_id = current_order_info.legs[0].id
+                    break
+                    
+                order_id = current_order_info.id
+    
+        except KeyboardInterrupt:
+            
+            print('Canceling All Orders...')
+            ut.cancel_all_symbol_orders(api, symbol)
+            exit()
+            
+            
+            
     
     current_symbol_position = ut.get_symbol_position(api, symbol)
     average_entry_price = float(current_symbol_position.avg_entry_price)

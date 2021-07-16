@@ -96,4 +96,12 @@ def is_number(s):
         return True
     except ValueError:
         return False
+        
+def cancel_all_symbol_orders(api, symbol):
+    
+    all_orders = api.list_orders()
+        
+    for order in all_orders:
+        if order.symbol == symbol:
+            api.cancel_order(order.id)
     
