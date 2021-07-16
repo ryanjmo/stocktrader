@@ -79,7 +79,7 @@ def sell_the_stock(api, symbol, fraction_of_position_to_sell, extended_hours, se
             
             while True:
                 cancel_order_info = api.cancel_order(order_id)
-                time.sleep(.1)
+                time.sleep(.3)
                 canceled_order_info = api.get_order(order_id)
                 if canceled_order_info.status == 'pending cancel':
                     'PENDING CANCEL, CONTINUING'
@@ -95,16 +95,21 @@ def sell_the_stock(api, symbol, fraction_of_position_to_sell, extended_hours, se
                 
             else:
                 print("Didn't sell all doing market sell")
-                result = api.submit_order(
-                    symbol=symbol,
-                    qty=original_quantity_to_sell,
-                    side='sell',
-                    type='market',
-                    time_in_force='day',
-                    extended_hours=extended_hours
-                )
+                try:
+                    result = api.submit_order(
+                        symbol=symbol,
+                        qty=quantity_left_to_sell,
+                        side='sell',
+                        type='market',
+                        time_in_force='day',
+                        extended_hours=extended_hours
+                    )
+                except Exception as e:  
+                    ut.print_error(e)
+                    print('ERROR Selling... Probably Limit was hit and market did not work, but check stock to make sure it is sold.')
+                    exit()
                 time.sleep(2)
-                market_order_info = api.get_order(order_id)
+                market_order_info = api.get_order(result.id)
                 quantity_left_to_sell = int(market_order_info.qty) - int(market_order_info.filled_qty)
                 if quantity_left_to_sell == 0:
                     print("All sold from market... exiting...")
@@ -281,13 +286,12 @@ if __name__ == '__main__':
 
     if len(sys.argv) > 4:
         if sys.argv[4].isnumeric():
-            fraction_of_position_to_sell = int(sys.argv[3])
+            fraction_of_position_to_sell = int(sys.argv[4])
         else:
             print("ERROR... Fraction Of Position To Sell Should Be an Integer")
     else:
         fraction_of_position_to_sell = 1
         
-    
         
     
     sell_the_stock(api, symbol, fraction_of_position_to_sell, extended_hours, selling_into_strength)

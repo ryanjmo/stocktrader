@@ -68,6 +68,7 @@ else:
     exit()
 
 average_entry_price = float(original_symbol_position.avg_entry_price) 
+total_order_cost = original_position_qty*average_entry_price
 print('Average entry price', average_entry_price, 'Starting Position Quantity:', original_position_qty, 'Stop Limt Price:', stop_limit_price)
 
 
@@ -86,7 +87,7 @@ result = api.submit_order(
 order_id = result.id
 order_qty = result.qty
 
-buy.protect_from_quick_stop(api, symbol, current_price, stop_limit_price, order_id, average_entry_price)
+buy.protect_from_quick_stop(api, symbol, current_price, stop_limit_price, order_id, average_entry_price, total_order_cost)
 
 
     
