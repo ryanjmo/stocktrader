@@ -23,10 +23,6 @@ def sell_the_stock(api, symbol, fraction_of_position_to_sell, extended_hours, se
         print('********************* SELLING SCRIPT ***************************')
         print('Symbol: ', symbol)
     
-        if selling_into_strength == True:
-            sell_factor = 1.002
-            walk_down_factor = 7
-            
             
         all_orders = api.list_orders()
         
@@ -47,6 +43,22 @@ def sell_the_stock(api, symbol, fraction_of_position_to_sell, extended_hours, se
         print('original_position_qty', original_position_qty)
         print('original_symbol_price', original_symbol_price)
         
+        if float(original_position_qty) < 0:
+            print('IS SHORTTTTTTTTTT')
+            entry_side = 'sell'
+            exit_side = 'buy'
+            if selling_into_strength == True:
+                sell_factor = .998
+                walk_down_factor = 7
+            
+        else:
+            print('IS LOOOOOOONNNNGGGGGG')
+            entry_side = 'buy'
+            exit_side = 'sell'
+            if selling_into_strength == True:
+                sell_factor = 1.002
+                walk_down_factor = 7
+        
         
         if selling_into_strength == True:
             max_sell_price = ut.round_to_two((original_symbol_price)*sell_factor)
@@ -65,8 +77,8 @@ def sell_the_stock(api, symbol, fraction_of_position_to_sell, extended_hours, se
             print('Not Selling into strength, putting in Limit Order for 4 seconds. Limit price:', original_symbol_price)
             result = api.submit_order(
                 symbol=symbol,
-                qty=original_quantity_to_sell,
-                side='sell',
+                qty=abs(original_quantity_to_sell),
+                side=exit_side,
                 type='limit',
                 time_in_force='day',
                 limit_price=original_symbol_price,
@@ -98,8 +110,8 @@ def sell_the_stock(api, symbol, fraction_of_position_to_sell, extended_hours, se
                 try:
                     result = api.submit_order(
                         symbol=symbol,
-                        qty=quantity_left_to_sell,
-                        side='sell',
+                        qty=abs(quantity_left_to_sell),
+                        side=exit_side,
                         type='market',
                         time_in_force='day',
                         extended_hours=extended_hours
@@ -142,8 +154,8 @@ def sell_the_stock(api, symbol, fraction_of_position_to_sell, extended_hours, se
                     continue
                 result = api.submit_order(
                     symbol=symbol,
-                        qty=quantity_to_sell_this_itteration,
-                        side='sell',
+                        qty=abs(quantity_to_sell_this_itteration),
+                        side=exit_side,
                         type='limit',
                         time_in_force='day',
                         limit_price=price_for_order,
@@ -164,9 +176,11 @@ def sell_the_stock(api, symbol, fraction_of_position_to_sell, extended_hours, se
             
             start = time.time()
             
+            print('Running Selling into Stength, PRESS crtl-c TO MARKET SELL NOW')
             for x in range(0,100000):
                 itteration = x%price_divisions
                 print("Selling:", symbol, "Itteration:", itteration)
+                print('PRESS crtl-c TO MARKET SELL NOW')
                 if x%price_divisions == 0:
                     end = time.time()
                     print('Time Elapsed:', end - start)
@@ -213,8 +227,8 @@ def sell_the_stock(api, symbol, fraction_of_position_to_sell, extended_hours, se
                 try:
                     result = api.submit_order(
                         symbol=symbol,
-                        qty=quantity_left_to_sell,
-                        side='sell',
+                        qty=abs(quantity_left_to_sell),
+                        side=exit_side,
                         type='limit',
                         limit_price=order_info['price'],
                         time_in_force='day',
@@ -240,14 +254,16 @@ def sell_the_stock(api, symbol, fraction_of_position_to_sell, extended_hours, se
                 
         original_symbol_position = ut.get_symbol_position(api, symbol)
         
+        original_position_qty = int(original_symbol_position.qty)
+        
         if original_symbol_position == 0:
             print("All Sold out Exiting....")
         else:
             print("Doing a Market Sell...")
             result = api.submit_order(
                 symbol=symbol,
-                qty=original_symbol_position,
-                side='sell',
+                qty=abs(original_position_qty),
+                side=exit_side,
                 type='market',
                 time_in_force='day',
                 extended_hours=extended_hours

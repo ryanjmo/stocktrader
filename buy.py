@@ -26,8 +26,43 @@ import stop_loss as stop
 #python3 buy.py NAME, SYMBOL, FACTOR_OF_MONEY_TO_SPEND, PRICE, STOP_PRICE
 #
 #####################
+
+def get_price_to_enter(api, symbol, is_long):
     
-def protect_from_quick_stop(api, symbol, current_price, stop_price, order_id, average_entry_price, total_order_cost):
+    try:
+     while True:
+        current_price = ut.get_current_price_of_stock(symbol)    
+        print(current_price)
+        
+    
+    except KeyboardInterrupt:
+        if is_long == True:
+            factor_over_price_accepted = 1.00025
+            stop_out_factor = .995
+        else:
+            factor_over_price_accepted = .99975
+            stop_out_factor = 1.005
+        
+        price_to_enter = float(current_price)*factor_over_price_accepted
+        
+        price_to_enter = float(ut.round_to_two(price_to_enter))
+        current_price = float(ut.round_to_two(current_price))
+        
+        if price_to_enter == current_price:
+            price_to_enter = current_price + .01
+            
+        stop_price = float(ut.round_to_two(price_to_enter*stop_out_factor))
+        
+        
+        
+        
+    
+def protect_from_quick_stop(api, symbol, current_price, stop_price, order_id, average_entry_price, total_order_cost, entry_side, exit_side):
+    
+    if entry_side == 'buy':
+        is_long = True
+    else:
+        is_long = False
     
     stop_price = float(stop_price)
     
@@ -44,11 +79,11 @@ def protect_from_quick_stop(api, symbol, current_price, stop_price, order_id, av
                 print('Symbol:', symbol, 'Protecting From A Quick Stop: Average Entry Price', average_entry_price, 'Current Price:', current_price, 'Stop Price', str(round(stop_price, 3)),'Percentage Change', str(round(float(percentage_change_in_price), 5)), 'Dollar Change', ut.round_to_two(float(dollar_change_in_stock)))
             
             
-            if float(current_price) <= float(stop_price):
-                print("Current Price Lower than stop, trying to sell. current_price:", current_price, "stop_price", stop_price)
+            if (is_long == True and float(current_price) <= float(stop_price)) or (is_long == False and float(current_price) >= float(stop_price)):
+                print("Current Price Beyond Stop Price, trying to Exit. current_price:", current_price, "stop_price", stop_price)
                 time.sleep(2.4)
                 
-                cancel_order_info = api.cancel_order(order_id)
+                cancel_exorder_info = api.cancel_order(order_id)
                 while True:
                     time.sleep(.1)
                     canceled_order_info = api.get_order(order_id)
@@ -68,7 +103,7 @@ def protect_from_quick_stop(api, symbol, current_price, stop_price, order_id, av
                 result = api.submit_order(
                         symbol=symbol,
                         qty=quantity_left_to_sell,
-                        side='sell',
+                        side=exit_side,
                         type='market',
                         time_in_force='day',
                         extended_hours=extended_hours,
@@ -101,7 +136,7 @@ def protect_from_quick_stop(api, symbol, current_price, stop_price, order_id, av
             fraction_of_position_to_sell = input('Enter Fraction Of Position You Want Sold: ')
             
             if fraction_of_position_to_sell.isnumeric():
-                fraction_of_position_to_sell = int(fraction_of_position_to_sell)
+                fraction_of_position_to_sell = float(fraction_of_position_to_sell)
             else:
                 fraction_of_position_to_sell = 1
             
@@ -142,58 +177,83 @@ if __name__ == '__main__':
         )
         
         
-    symbol = sys.argv[3].upper()
+    symbol = sys.argv[4].upper()
     
     all_orders = api.list_orders()
         
     for order in all_orders:
         if order.symbol == symbol:
             api.cancel_order(order.id)
+
+
     
-    current_price = ut.get_current_price_of_stock(symbol)
+    is_long = True
+    
+    if sys.argv[2] == 'long':
+        is_long = True
+    elif sys.argv[2] == 'short':
+        is_long = False
+    else:
+        print("Need to Enter Long Or Short")
     
     
-    
-    print(current_price)
-    
-            
-    print('********************* BUYING SCRIPT ***************************')
-    print('Symbol: ', symbol, ', current_price:', current_price)
-    print('')
-    
-    if sys.argv[2].isnumeric():
-        fraction_of_money_to_spend = float(sys.argv[2])
+    if sys.argv[3].isnumeric():
+        fraction_of_money_to_spend = float(sys.argv[3])
     else:
         print("ERROR... Fraction Of Money To Spend Should Be an Integer")
     
     
     additional_market_buy = False
     
-    if len(sys.argv) > 4 and sys.argv[4] != '0' and sys.argv[4] != '-1':
+    if len(sys.argv) > 5 and sys.argv[5] != '0' and sys.argv[5] != '-1' and sys.argv[5] != '-2':
         #This will be a limit buy
-        original_buy_price = float(sys.argv[4])
-        factor_over_price_accepted = 1.00025
-        stop_out_factor = .998
+        original_buy_price = float(sys.argv[5])
+        
+        if is_long == True:
+            factor_over_price_accepted = 1.00025
+            stop_out_factor = .998
+        else:
+            factor_over_price_accepted = .99975
+            stop_out_factor = 1.002
         limit_buy = True
         print('Limit Buy Tight')
+        current_price = -1
         
-    else:
+    elif sys.argv[5] != '0' or sys.argv[5] != '-1':
+        
         #This will be a market buy
+        current_price = ut.get_current_price_of_stock(symbol)
         original_buy_price = current_price
-        factor_over_price_accepted = 1.001
-        stop_out_factor = .998
+        if is_long == True:
+            factor_over_price_accepted = 1.001
+            stop_out_factor = .998
+        else:
+            factor_over_price_accepted = .999
+            stop_out_factor = 1.002
+
+            
         limit_buy = False
-        if sys.argv[4] == '0':
+        if sys.argv[5] == '0':
             print('Limit Buy Based On Current Price Plus a Bit')
-        if sys.argv[4] == '-1':
+        if sys.argv[5] == '-1':
             additional_market_buy = True
             print('Limit Buy Based On Current Price Plus a Bit, THEN a Market Buy')
+            
+    # else:
         
+    #     #determine price on the fly
+    #     get_price_to_enter(api, symbol, is_long)
         
     
-    if len(sys.argv) > 5:
+    print('********************* BUYING SCRIPT ***************************')
+    print('Symbol: ', symbol, ', current_price:', current_price)
+    print('')
+    
+        
+    
+    if len(sys.argv) > 6:
         entered_stop_price = True
-        stop_price  = float(sys.argv[5])
+        stop_price  = float(sys.argv[6])
         
     else:
         entered_stop_price = False
@@ -203,6 +263,7 @@ if __name__ == '__main__':
         
     #limit_price_for_stop = stop_price*.998
     limit_price_for_stop = stop_price*1
+    
     
 
     
@@ -222,14 +283,9 @@ if __name__ == '__main__':
     print('Limit Price', ut.round_to_two(limit_price_for_stop))
     
     
-    account = api.get_account()
     
-    print('Account Total Portfolio Value: ', account.portfolio_value)
-    
-    
-    account_portfolio_value = int(float(account.portfolio_value))
     if sys.argv[1] == 'ryan':
-        account_portfolio_value = 2500
+        account_portfolio_value = 10000
     if sys.argv[1] == 'chrissy':
         account_portfolio_value = 2500
     
@@ -245,11 +301,18 @@ if __name__ == '__main__':
     print('Maximum Cost of Order: ', ut.round_to_two((original_quantity_to_buy) * float(max_buy_price)))
     print('')
     
+    if is_long == True:
+        entry_side = 'buy'
+        exit_side = 'sell'
+        
+    else:
+        entry_side = 'sell'
+        exit_side = 'buy'
     
     result = api.submit_order(
         symbol=symbol,
         qty=original_quantity_to_buy,
-        side='buy',
+        side=entry_side,
         type='limit',
         time_in_force='day',
         limit_price=max_buy_price,
@@ -289,7 +352,7 @@ if __name__ == '__main__':
             result = api.submit_order(
                 symbol=symbol,
                 qty=quantity_left_to_buy,
-                side='buy',
+                side=entry_side,
                 type='market',
                 time_in_force='day',
                 extended_hours=extended_hours
@@ -297,16 +360,25 @@ if __name__ == '__main__':
                 
             time.sleep(.2)
             
-            result = api.submit_order(
-                symbol=symbol,
-                qty=original_quantity_to_buy,
-                side='sell',
-                type='stop_limit',
-                time_in_force='day',
-                stop_price=stop_price,
-                limit_price=limit_price_for_stop,
-                extended_hours=extended_hours
-            )
+            while True:
+                try:
+                    result = api.submit_order(
+                        symbol=symbol,
+                        qty=original_quantity_to_buy,
+                        side=exit_side,
+                        type='stop_limit',
+                        time_in_force='day',
+                        stop_price=stop_price,
+                        limit_price=limit_price_for_stop,
+                        extended_hours=extended_hours
+                    )
+                    break
+                except KeyboardInterrupt:
+                    print("error trying to put stop again")
+                    time.sleep(.1)
+            
+            
+                
             
             order_id = result.id
     
@@ -358,11 +430,17 @@ if __name__ == '__main__':
         
     current_price = ut.get_current_price_of_stock(symbol)
     
-    if current_price <= stop_price:
-        stop_price = ut.round_to_two(current_price*.9997)
-        if float(stop_price) == float(math.floor(current_price * 100)/100.0):
-            stop_price = float(stop_price) - .01
+    if is_long == True:
+        if current_price <= stop_price:
+            stop_price = ut.round_to_two(current_price*.9997)
+            if float(stop_price) == float(math.floor(current_price * 100)/100.0):
+                stop_price = float(stop_price) - .01
+    else:
+        if current_price >= stop_price:
+            stop_price = ut.round_to_two(current_price*1.0003)
+            if float(stop_price) == float(math.floor(current_price * 100)/100.0):
+                stop_price = float(stop_price) + .01
         
     
-    protect_from_quick_stop(api, symbol, current_price, stop_price, order_id, average_entry_price, total_order_cost)
+    protect_from_quick_stop(api, symbol, current_price, stop_price, order_id, average_entry_price, total_order_cost, entry_side, exit_side)
     

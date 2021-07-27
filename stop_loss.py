@@ -54,12 +54,21 @@ def change_stop_loss(api, symbol, stop_limit_price):
     total_order_cost = original_position_qty*average_entry_price
     print('Average entry price', average_entry_price, 'Starting Position Quantity:', original_position_qty, 'Stop Limt Price:', stop_limit_price)
     
+    if float(original_position_qty) < 0:
+        print('IS SHORTTTTTTTTTT')
+        entry_side = 'sell'
+        exit_side = 'buy'
+    else:
+        print('IS LOOOOOOONNNNGGGGGG')
+        entry_side = 'buy'
+        exit_side = 'sell'
+        
     
     
     result = api.submit_order(
             symbol=symbol,
-            qty=original_position_qty,
-            side='sell',
+            qty=abs(original_position_qty),
+            side=exit_side,
             type='stop_limit',
             time_in_force='day',
             stop_price=stop_limit_price,
@@ -70,7 +79,7 @@ def change_stop_loss(api, symbol, stop_limit_price):
     order_id = result.id
     order_qty = result.qty
     
-    buy.protect_from_quick_stop(api, symbol, current_price, stop_limit_price, order_id, average_entry_price, total_order_cost)
+    buy.protect_from_quick_stop(api, symbol, current_price, stop_limit_price, order_id, average_entry_price, total_order_cost, entry_side, exit_side)
 
 
 
