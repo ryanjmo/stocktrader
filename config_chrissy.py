@@ -7,3 +7,4 @@
 API_KEY = "AKW5SMTNEV6428KGRZM4"
 SECRET_KEY = "wg2qi1EerwU99HNNCu8QN3LuO1qoVSnyud9NQmqO"
 BASE_URL = 'https://api.alpaca.markets'
+BET_SIZE = 500

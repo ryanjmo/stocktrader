@@ -1,0 +1,10 @@
+python3 stop_loss.py ryan amd 112.3
+python3 buy.py ryan short 1 amd -2
+python3 buy.py ryan long 1 amd 112.65 112.42
+python3 buy.py ryan short 1 amd 112.65 112.42
+
+
+python3 stop_loss.py chrissy amd 112.3
+python3 buy.py chrissy short 1 amd -2
+python3 buy.py chrissy long 1 amd 112.65 112.42
+python3 buy.py chrissy short 1 amd 112.65 112.42

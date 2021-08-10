@@ -28,7 +28,7 @@ import buy
 #####################
 
 
-def change_stop_loss(api, symbol, stop_limit_price):
+def change_stop_loss(api, symbol, stop_price):
     
     extended_hours = False
 
@@ -44,7 +44,7 @@ def change_stop_loss(api, symbol, stop_limit_price):
     
     original_symbol_position = ut.get_symbol_position(api, symbol)
             
-    print("Original Symbol Position:", original_symbol_position)
+    #print("Original Symbol Position:", original_symbol_position)
     if original_symbol_position == 0:
         print("No Symbol Position.. Exiting...")
         exit()
@@ -52,18 +52,44 @@ def change_stop_loss(api, symbol, stop_limit_price):
     
     average_entry_price = float(original_symbol_position.avg_entry_price) 
     total_order_cost = original_position_qty*average_entry_price
-    print('Average entry price', average_entry_price, 'Starting Position Quantity:', original_position_qty, 'Stop Limt Price:', stop_limit_price)
+    print('Average entry price', average_entry_price, 'Starting Position Quantity:', original_position_qty, 'Stop Limt Price:', stop_price)
+    
+    
     
     if float(original_position_qty) < 0:
         print('IS SHORTTTTTTTTTT')
         entry_side = 'sell'
         exit_side = 'buy'
+        if float(current_price) < 20:
+            factor_for_limit = 1.0005
+        elif float(current_price) < 100:
+            factor_for_limit = 1.00025
+        else:
+            factor_for_limit = 1.000125
+            
+        if current_price >= stop_price:
+            stop_price = ut.round_to_two(current_price*1.0003)
+            if float(stop_price) == float(math.floor(current_price * 100)/100.0):
+                stop_price = float(stop_price) + .01
+            
     else:
         print('IS LOOOOOOONNNNGGGGGG')
         entry_side = 'buy'
         exit_side = 'sell'
+        if float(current_price) < 20:
+            factor_for_limit = .9995
+        elif float(current_price) < 100:
+            factor_for_limit = .99975
+        else:
+            factor_for_limit = .999875
         
-    
+        if current_price <= stop_price:
+            stop_price = ut.round_to_two(current_price*.9997)
+            if float(stop_price) == float(math.floor(current_price * 100)/100.0):
+                stop_price = float(stop_price) - .01
+            
+    limit_price = ut.move_price_at_least_one_cent(stop_price, factor_for_limit)
+            
     
     result = api.submit_order(
             symbol=symbol,
@@ -71,16 +97,20 @@ def change_stop_loss(api, symbol, stop_limit_price):
             side=exit_side,
             type='stop_limit',
             time_in_force='day',
-            stop_price=stop_limit_price,
-            limit_price=stop_limit_price,
+            stop_price=stop_price,
+            limit_price=limit_price,
             extended_hours=extended_hours
         )
     
     order_id = result.id
     order_qty = result.qty
     
-    buy.protect_from_quick_stop(api, symbol, current_price, stop_limit_price, order_id, average_entry_price, total_order_cost, entry_side, exit_side)
+    need_to_update_stop = False
+    
+    if __name__ == '__main__':
+        buy.protect_from_quick_stop(api, symbol, current_price, stop_price, order_id, average_entry_price, total_order_cost, entry_side, exit_side, need_to_update_stop)
 
+    return order_id
 
 
 if __name__ == '__main__':
@@ -96,12 +126,12 @@ if __name__ == '__main__':
     
     if len(sys.argv) > 3 and sys.argv[3] != 0:
         #This will be a limit buy
-        stop_limit_price = float(sys.argv[3])
+        stop_price = float(sys.argv[3])
     else:
         print("Error, need stop_limit price exiting...")
         exit()
     
-    change_stop_loss(api, symbol, stop_limit_price)
+    change_stop_loss(api, symbol, stop_price)
     
     
     

@@ -37,7 +37,7 @@ api = tradeapi.REST(
     
 symbol = sys.argv[2].upper()
 
-extended_hours = True
+extended_hours = False
 
 ut.cancel_all_symbol_orders(api, symbol)
 
@@ -50,21 +50,42 @@ print('')
 
 
 if sys.argv[1] == 'ryan':
-    account_portfolio_value = 5000
+    account_portfolio_value = 100
 if sys.argv[1] == 'chrissy':
-    account_portfolio_value = 1000
+    account_portfolio_value = 100
     
 original_quantity_to_buy = int(float(account_portfolio_value)/float(current_price))
 
-limit_price = float(current_price)*.99
+limit_price = float(current_price)*1.01
 
 result = api.submit_order(
     symbol=symbol,
-    qty=abs(original_quantity_to_buy),
-    side='sell',
-    type='limit',
-    limit_price=10.32,
+    qty=1,
+    side='buy',
+    type='market',
     time_in_force='day',
     extended_hours=extended_hours
 )
+
+result = api.submit_order(
+    symbol=symbol,
+    qty=1,
+    side='sell',
+    type='limit',
+    limit_price=limit_price,
+    time_in_force='day',
+    extended_hours=extended_hours
+)
+
+result = api.submit_order(
+    symbol=symbol,
+    qty=1,
+    side='sell',
+    type='limit',
+    limit_price=limit_price,
+    time_in_force='day',
+    extended_hours=extended_hours
+)
+
+
 
