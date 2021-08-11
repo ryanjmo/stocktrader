@@ -278,7 +278,7 @@ def sell_the_stock(api, symbol, fraction_of_position_to_sell, extended_hours, se
                         continue
                 
                 cancel_order_info = api.cancel_order(order_info['id'])
-                time.sleep(.25)
+                time.sleep(.1)
                 canceled_order_info = api.get_order(order_info['id'])
                 if canceled_order_info.status == 'pending cancel':
                     'PENDING CANCEL, CONTINUING'

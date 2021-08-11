@@ -1,5 +1,10 @@
-from config import *
 import sys
+if sys.argv[1] == 'ryan':
+    from config import *
+    import config as config
+if sys.argv[1] == 'chrissy':
+    from config_chrissy import *
+    import config_chrissy as config
 import os
 import time
 import utility as ut
@@ -92,21 +97,27 @@ def cancel_order_and_calculate_quanity_left_to_sell(api, order_info):
 def get_current_price_of_stock(symbol):
     
     while True:
-        r = requests.get('https://api.polygon.io/v2/last/trade/' + symbol + '?&apiKey=eVYfnI_fKclE__oNUHZ2iQ_NNCU6I6PlAuoW8E')
-        formated_result = r.json()
-        
-        #ignore 14, 41, 10
-        if 'c' in formated_result['results']:
-            #print(formated_result['results']['c'])
-            if str(formated_result['results']['c']).find('14') > 0 or str(formated_result['results']['c']).find('41') > 0 or str(formated_result['results']['c']).find('10') > 0:
-                time.sleep(.1)
-                continue
-            else:
-                break
-        else:
+        if config.current_price > 0:
             break
+        time.sleep(.1)
+    return config.current_price
     
-    return float(formated_result['results']['p'])
+    # while True:
+    #     r = requests.get('https://api.polygon.io/v2/last/trade/' + symbol + '?&apiKey=eVYfnI_fKclE__oNUHZ2iQ_NNCU6I6PlAuoW8E')
+    #     formated_result = r.json()
+        
+    #     #ignore 14, 41, 10
+    #     if 'c' in formated_result['results']:
+    #         #print(formated_result['results']['c'])
+    #         if str(formated_result['results']['c']).find('14') > 0 or str(formated_result['results']['c']).find('41') > 0 or str(formated_result['results']['c']).find('10') > 0:
+    #             time.sleep(.1)
+    #             continue
+    #         else:
+    #             break
+    #     else:
+    #         break
+    
+    # return float(formated_result['results']['p'])
     
 def is_number(s):
     try:

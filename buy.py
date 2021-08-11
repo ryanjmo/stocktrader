@@ -1,9 +1,12 @@
 import sys
 if sys.argv[1] == 'ryan':
     from config import *
+    import config as config
 if sys.argv[1] == 'chrissy':
     from config_chrissy import *
+    import config_chrissy as config
 import os
+import asyncio
 import time
 import utility as ut
 import alpaca_trade_api as tradeapi
@@ -18,6 +21,12 @@ import json
 import sell_7_seconds as sell
 import math
 import stop_loss as stop
+from alpaca_trade_api.stream import Stream
+from alpaca_trade_api.common import URL
+import logging
+import threading
+
+logging.basicConfig(format='%(asctime)s %(message)s', level=logging.INFO)
 
 
 ##change
@@ -73,7 +82,30 @@ def set_enter_price_and_stop(current_price, long_or_short):
     
     return prices_for_entry
     
+def get_new_stop_and_reverse(stop_price, average_entry_price):
     
+    new_entered_stop_price = input('Current Stop Loss is ' + str(stop_price) + ' Average Entry Price Was ' + str(ut.round_to_two(average_entry_price)) + ' Press ENTER to continue, enter new price for new stop loss: ')
+        
+    try:
+        
+        float(new_entered_stop_price)
+        stop_price = float(new_entered_stop_price)
+        print("New Stop Entered... New Stop is: ", stop_price)
+        entered_stop_price = True
+        
+    except ValueError:
+        print('No New Stop Entered.. Stop is: ', stop_price)
+    
+    
+    while True:
+        reverse_on_stop = input("Do you want to reverse the trade if it hits the stop loss YES(y) or NO(n):")
+        if reverse_on_stop == 'y' or reverse_on_stop == 'n':
+            break
+    
+    new_stop_and_reverse = {}
+    new_stop_and_reverse['stop_price'] = stop_price
+    new_stop_and_reverse['reverse_on_stop'] = reverse_on_stop
+    return new_stop_and_reverse
  
 def get_price_to_enter(api, symbol):
     
@@ -83,7 +115,7 @@ def get_price_to_enter(api, symbol):
         while True:
             current_price = ut.get_current_price_of_stock(symbol)    
             print(current_price)
-            time.sleep(.25)
+            time.sleep(.1)
         
     
     except KeyboardInterrupt:
@@ -100,7 +132,7 @@ def get_price_to_enter(api, symbol):
         return prices_for_entry
                     
     
-def protect_from_quick_stop(api, symbol, current_price, stop_price, order_id, average_entry_price, total_order_cost, entry_side, exit_side, need_to_update_stop):
+def protect_from_quick_stop(api, symbol, current_price, stop_price, order_id, average_entry_price, total_order_cost, entry_side, exit_side, need_to_update_stop, reverse_on_stop):
     
     if entry_side == 'buy':
         is_long = True
@@ -137,6 +169,10 @@ def protect_from_quick_stop(api, symbol, current_price, stop_price, order_id, av
                 print("Current Price Beyond Stop Price, trying to Exit. current_price:", current_price, "stop_price", stop_price)
                 
                 start = time.time()
+                if reverse_on_stop == 'y':
+                    break_after_time = .5
+                else:
+                    break_after_time = 4.1
                 
                 while True:
                 
@@ -151,7 +187,7 @@ def protect_from_quick_stop(api, symbol, current_price, stop_price, order_id, av
                     
                     print('end - start: ', end - start)
                     
-                    if float(end - start) > 4.1:
+                    if float(end - start) > break_after_time:
                         break
                     
                     time.sleep(.15)
@@ -161,7 +197,6 @@ def protect_from_quick_stop(api, symbol, current_price, stop_price, order_id, av
                 while True:
                     time.sleep(.1)
                     canceled_order_info = api.get_order(order_id)
-                    print(canceled_order_info)
                     if canceled_order_info.status == 'pending cancel':
                         'PENDING CANCEL, CONTINUING'
                         continue
@@ -220,7 +255,7 @@ def protect_from_quick_stop(api, symbol, current_price, stop_price, order_id, av
                 else:
                     print("ERROR, something went wrong, should have sold all. Do a Market Order")
             
-            time.sleep(.01)
+            time.sleep(.2)
             current_price = ut.get_current_price_of_stock(symbol)
             
             print(symbol, 'current price :', current_price, 'Average Entry Price', average_entry_price, 'Stop Price', str(round(stop_price, 3)))
@@ -299,21 +334,40 @@ def protect_from_quick_stop(api, symbol, current_price, stop_price, order_id, av
                  
             else:    
                 
-                stop_price = input('A Current Price: ' + str(current_price) + '   Enter New Stop Limit Price: ')
+                new_stop_and_reverse = get_new_stop_and_reverse(stop_price, average_entry_price)
                 need_to_update_stop = True
-                protect_from_quick_stop(api, symbol, current_price, stop_price, order_id, average_entry_price, total_order_cost, entry_side, exit_side, need_to_update_stop)
+                protect_from_quick_stop(api, symbol, current_price, new_stop_and_reverse['stop_price'], order_id, average_entry_price, total_order_cost, entry_side, exit_side, need_to_update_stop, new_stop_and_reverse['reverse_on_stop'])
                 
         
-        else:
-            
-            stop_price = input('A Current Price: ' + str(current_price)+ '    Enter New Stop Limit Price: ')
+        elif next_step == 'c':
+            #next_step was c change stop loss
+            new_stop_and_reverse = get_new_stop_and_reverse(stop_price, average_entry_price)
             need_to_update_stop = True
-            protect_from_quick_stop(api, symbol, current_price, stop_price, order_id, average_entry_price, total_order_cost, entry_side, exit_side, need_to_update_stop)
+            protect_from_quick_stop(api, symbol, current_price, new_stop_and_reverse['stop_price'], order_id, average_entry_price, total_order_cost, entry_side, exit_side, need_to_update_stop, new_stop_and_reverse['reverse_on_stop'])
+        
+        elif next_step == 'b':
+            if is_long == True:
+                long_or_short = 'l'
+            else:
+                long_or_short = 's'
+            current_price = ut.get_current_price_of_stock(symbol)
+            prices_for_entry = set_enter_price_and_stop(current_price, long_or_short)
+            set_buy_script_variables_and_buy(api, symbol, prices_for_entry)
+    
+    if reverse_on_stop == 'y':
+        #reverse direction
+        if is_long == True:
+            long_or_short = 's'
+        else:
+            long_or_short = 'l'
             
-    
-    
-    prices_for_entry = get_price_to_enter(api, symbol)
-    set_buy_script_variables_and_buy(api, symbol, prices_for_entry)
+        current_price = ut.get_current_price_of_stock(symbol)
+        prices_for_entry = set_enter_price_and_stop(current_price, long_or_short)
+        set_buy_script_variables_and_buy(api, symbol, prices_for_entry)
+        
+    else:
+        prices_for_entry = get_price_to_enter(api, symbol)
+        set_buy_script_variables_and_buy(api, symbol, prices_for_entry)
     
             
             
@@ -361,7 +415,7 @@ def buy_script(api, symbol, is_long, fraction_of_money_to_spend, additional_mark
         print("CHRISSY CHRISSY CHRISSY CHRISSY CHRISSY CHRISSY CHRISSY CHRISSY CHRISSY CHRISSY CHRISSY CHRISSY CHRISSY CHRISSY CHRISSY CHRISSY")
     
     
-    original_quantity_to_buy = (float(BET_SIZE)/fraction_of_money_to_spend)/float(max_buy_price)
+    original_quantity_to_buy = (float(config.position_size)/fraction_of_money_to_spend)/float(max_buy_price)
     51.52
     
     original_quantity_to_buy = int(original_quantity_to_buy)
@@ -510,19 +564,13 @@ def buy_script(api, symbol, is_long, fraction_of_money_to_spend, additional_mark
                 print("error putting stop... trying to put stop again...")
                 time.sleep(.1)
         
+    reverse_on_stop = 'n'
     
     if on_the_fly == True:
-        new_entered_stop_price = input('Current Stop Loss is ' + str(stop_price) + ' Average Entry Price Was ' + str(ut.round_to_two(average_entry_price)) + ' Press ENTER to continue, enter new price for new stop loss: ')
         
-        try:
-            
-            float(new_entered_stop_price)
-            stop_price = float(new_entered_stop_price)
-            print("New Stop Entered... New Stop is: ", stop_price)
-            entered_stop_price = True
-            
-        except ValueError:
-            print('No New Stop Entered.. Stop is: ', stop_price)
+        new_stop_and_reverse = get_new_stop_and_reverse(stop_price, average_entry_price)
+        stop_price = new_stop_and_reverse['stop_price']
+        reverse_on_stop = new_stop_and_reverse['reverse_on_stop']
         
     
     total_order_cost = average_entry_price*current_position_qty
@@ -535,8 +583,31 @@ def buy_script(api, symbol, is_long, fraction_of_money_to_spend, additional_mark
     current_price = ut.get_current_price_of_stock(symbol)
     
     need_to_update_stop = True
-    protect_from_quick_stop(api, symbol, current_price, stop_price, order_id, average_entry_price, total_order_cost, entry_side, exit_side, need_to_update_stop)
+    protect_from_quick_stop(api, symbol, current_price, stop_price, order_id, average_entry_price, total_order_cost, entry_side, exit_side, need_to_update_stop, reverse_on_stop)
+
+
+async def print_trade(trade):
+    if trade.tape == 'C':
+        config.current_price = float(trade.price)
+        #print(config.current_price)
         
+def price_getting_thread(symbol):
+    
+    try:
+        # make sure we have an event loop, if not create a new one
+        loop = asyncio.get_event_loop()
+        loop.set_debug(True)
+    except RuntimeError:
+        asyncio.set_event_loop(asyncio.new_event_loop())
+        
+    logging.basicConfig(level=logging.INFO)
+    stream = Stream(API_KEY,
+                  SECRET_KEY,
+                  base_url=URL(BASE_URL),
+                  data_feed='sip')
+    stream.subscribe_trades(print_trade, symbol)
+    
+    stream.run()
         
     
 if __name__ == '__main__':
@@ -549,8 +620,16 @@ if __name__ == '__main__':
             BASE_URL
         )
         
-        
     symbol = sys.argv[4].upper()
+    
+    position_size = input('How much do you want to bet. BE SAMART:')
+    
+    config.init_globals(position_size)
+    
+    threading.Thread(target=price_getting_thread, kwargs={'symbol': symbol}).start()
+    
+    
+    print('current_price', config.current_price)
     
     all_orders = api.list_orders()
         

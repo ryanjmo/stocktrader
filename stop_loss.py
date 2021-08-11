@@ -1,8 +1,10 @@
 import sys
 if sys.argv[1] == 'ryan':
     from config import *
+    import config as config
 if sys.argv[1] == 'chrissy':
     from config_chrissy import *
+    import config_chrissy as config
 import os
 import time
 import utility as ut
@@ -18,6 +20,9 @@ import json
 import sell_7_seconds as sell
 import math
 import buy
+from alpaca_trade_api.stream import Stream
+from alpaca_trade_api.common import URL
+import threading
 
 
 ##change
@@ -39,7 +44,7 @@ def change_stop_loss(api, symbol, stop_price):
     
             
     print('********************* Stop Loss ***************************')
-    print('Symbol: ', symbol, ', current_price:', current_price)
+    print('Symbol: ', symbol, ', current_price:', current_price, 'stop_price', stop_price)
     print('')
     
     original_symbol_position = ut.get_symbol_position(api, symbol)
@@ -107,8 +112,11 @@ def change_stop_loss(api, symbol, stop_price):
     
     need_to_update_stop = False
     
+    
+    
     if __name__ == '__main__':
-        buy.protect_from_quick_stop(api, symbol, current_price, stop_price, order_id, average_entry_price, total_order_cost, entry_side, exit_side, need_to_update_stop)
+        reverse_on_stop = input("Would you like to reverse trade directions if your stop is hit? YES(y) or NO(n)")
+        buy.protect_from_quick_stop(api, symbol, current_price, stop_price, order_id, average_entry_price, total_order_cost, entry_side, exit_side, need_to_update_stop, reverse_on_stop)
 
     return order_id
 
@@ -121,8 +129,11 @@ if __name__ == '__main__':
         BASE_URL
     )
     
-    
     symbol = sys.argv[2].upper()
+    
+    config.init_globals()
+    
+    threading.Thread(target=buy.price_getting_thread, kwargs={'symbol': symbol}).start()
     
     if len(sys.argv) > 3 and sys.argv[3] != 0:
         #This will be a limit buy
