@@ -416,7 +416,6 @@ def buy_script(api, symbol, is_long, fraction_of_money_to_spend, additional_mark
     
     
     original_quantity_to_buy = (float(config.position_size)/fraction_of_money_to_spend)/float(max_buy_price)
-    51.52
     
     original_quantity_to_buy = int(original_quantity_to_buy)
     print('Quantity of ', symbol ,' Trying To Buy: ', int(original_quantity_to_buy))
