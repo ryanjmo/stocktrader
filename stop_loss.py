@@ -131,7 +131,9 @@ if __name__ == '__main__':
     
     symbol = sys.argv[2].upper()
     
-    config.init_globals()
+    position_size = input('How much do you want to bet. Be smart, no FOMO, you have a long time to get good at this. You DO NOT DO NOT need to make any moeny back. Do not mess everything up by being greedy:')
+    
+    config.init_globals(position_size)
     
     threading.Thread(target=buy.price_getting_thread, kwargs={'symbol': symbol}).start()
     

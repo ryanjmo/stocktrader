@@ -354,6 +354,8 @@ def protect_from_quick_stop(api, symbol, current_price, stop_price, order_id, av
             prices_for_entry = set_enter_price_and_stop(current_price, long_or_short)
             set_buy_script_variables_and_buy(api, symbol, prices_for_entry)
     
+    
+    print('here******** reverse_on_stop', reverse_on_stop)
     if reverse_on_stop == 'y':
         #reverse direction
         if is_long == True:
@@ -586,9 +588,12 @@ def buy_script(api, symbol, is_long, fraction_of_money_to_spend, additional_mark
 
 
 async def print_trade(trade):
-    if trade.tape == 'C':
-        config.current_price = float(trade.price)
-        #print(config.current_price)
+    
+    for condition in trade.conditions:
+        if condition != '@' and condition != 'F' and condition != 'I' and  condition != ' ':
+            print(trade.conditions)
+        else:
+            config.current_price = float(trade.price)
         
 def price_getting_thread(symbol):
     
@@ -621,7 +626,7 @@ if __name__ == '__main__':
         
     symbol = sys.argv[4].upper()
     
-    position_size = input('How much do you want to bet. BE SAMART:')
+    position_size = input('How much do you want to bet. Be smart, no FOMO, you have a long time to get good at this. You DO NOT DO NOT need to make any moeny back. Do not mess everything up by being greedy:')
     
     config.init_globals(position_size)
     

@@ -2,6 +2,9 @@
     "build": {
         "@saveall": true
     },
+    "instance": {
+        "@automaticShutdown": "never"
+    },
     "language": {
         "tern_defs": {
             "json()": {
